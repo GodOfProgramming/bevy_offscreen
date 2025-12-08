@@ -63,7 +63,7 @@ fn startup(
         &window,
         COLOR_ID_LAYER,
         CameraType::Camera2d(Camera2d),
-        TextureFormat::R8Uint,
+        TextureFormat::Rgba8UnormSrgb,
     );
 
     let rect_mesh = meshes.add(Rectangle::from_size(Vec2::splat(RECTANGLE_SIZE)));
@@ -75,6 +75,7 @@ fn startup(
     let left_rect = commands
         .spawn(OffscreenCameraRect {
             render_layers: RenderLayers::layer(GRAYSCALE_LAYER),
+            // render_layers: RenderLayers::layer(0),
             mesh: Mesh2d(rect_mesh.clone()),
             material: MeshMaterial2d(grayscale_rect_mat.clone()),
             transform: Transform::from_translation(Vec3::new(-RECTANGLE_SIZE * 2.0, 0.0, 0.0)),
@@ -84,6 +85,7 @@ fn startup(
     let right_rect = commands
         .spawn(OffscreenCameraRect {
             render_layers: RenderLayers::layer(GRAYSCALE_LAYER),
+            // render_layers: RenderLayers::layer(0),
             mesh: Mesh2d(rect_mesh.clone()),
             material: MeshMaterial2d(grayscale_rect_mat.clone()),
             transform: Transform::from_translation(Vec3::new(RECTANGLE_SIZE * 2.0, 0.0, 0.0)),
@@ -94,7 +96,8 @@ fn startup(
         (
             ChildOf(left_rect),
             OffscreenCameraRect {
-                render_layers: RenderLayers::layer(COLOR_ID_LAYER),
+                // render_layers: RenderLayers::layer(COLOR_ID_LAYER),
+                render_layers: RenderLayers::layer(0),
                 mesh: Mesh2d(rect_mesh.clone()),
                 material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 0 })),
                 transform: Transform::default(),
@@ -103,7 +106,8 @@ fn startup(
         (
             ChildOf(right_rect),
             OffscreenCameraRect {
-                render_layers: RenderLayers::layer(COLOR_ID_LAYER),
+                // render_layers: RenderLayers::layer(COLOR_ID_LAYER),
+                render_layers: RenderLayers::layer(0),
                 mesh: Mesh2d(rect_mesh.clone()),
                 material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 1 })),
                 transform: Transform::default(),
@@ -153,26 +157,6 @@ pub struct ColorIdMaterial {
 impl Material2d for ColorIdMaterial {
     fn fragment_shader() -> bevy::shader::ShaderRef {
         "color_id.wgsl".into()
-    }
-
-    fn specialize(
-        descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
-        _layout: &bevy::mesh::MeshVertexBufferLayoutRef,
-        _key: bevy::sprite_render::Material2dKey<Self>,
-    ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
-        let Ok(fragment) = descriptor.fragment_mut() else {
-            return Ok(());
-        };
-
-        let target_state = bevy::render::render_resource::ColorTargetState {
-            format: TextureFormat::R8Uint,
-            blend: None,
-            write_mask: bevy::render::render_resource::ColorWrites::all(),
-        };
-
-        fragment.targets = vec![Some(target_state)];
-
-        Ok(())
     }
 }
 

@@ -1,4 +1,5 @@
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
 
 use bevy::{
     camera::{
@@ -238,42 +239,50 @@ where
 {
     let image_size = get_viewport_size(rendering_camera, rendering_window);
 
-    let rendering_camera = rendering_camera.cloned().unwrap_or_default();
-
     let image = Image::new_target_texture(image_size.x, image_size.y, texture_format);
 
     let image_handle = images.add(image);
 
-    let mut offscreen_entity = commands.spawn((
-        OffscreenCamera::<C, W>::default(),
-        RenderLayers::layer(layer),
-        Camera {
-            target: RenderTarget::Image(ImageRenderTarget::from(image_handle.clone())),
-            clear_color: ClearColorConfig::Custom(Color::NONE),
-            ..rendering_camera
-        },
-    ));
-
-    match camera_type {
-        CameraType::Camera2d(cam_2d) => {
-            offscreen_entity.insert(cam_2d);
-        }
-        CameraType::Camera3d(cam_3d) => {
-            offscreen_entity.insert(cam_3d);
-        }
-    }
-
-    let offscreen_camera_id = offscreen_entity.id();
+    let offscreen_entity_id = match camera_type {
+        CameraType::Camera2d(cam_2d) => commands
+            .spawn((
+                cam_2d,
+                offscreen_camera_bundle::<C, W>(image_handle.clone(), layer),
+            ))
+            .id(),
+        CameraType::Camera3d(cam_3d) => commands
+            .spawn((
+                cam_3d,
+                offscreen_camera_bundle::<C, W>(image_handle.clone(), layer),
+            ))
+            .id(),
+    };
 
     commands
         .entity(rendering_camera_entity)
-        .add_child(offscreen_camera_id);
+        .add_child(offscreen_entity_id);
 
-    (offscreen_camera_id, image_handle)
+    (offscreen_entity_id, image_handle)
 }
 
 pub fn get_viewport_size(camera: Option<&Camera>, window: &Window) -> UVec2 {
     camera
         .and_then(|c| c.viewport.as_ref().map(|vp| vp.physical_size))
         .unwrap_or(window.physical_size())
+}
+
+fn offscreen_camera_bundle<C, W>(image_handle: Handle<Image>, layer: Layer) -> impl Bundle
+where
+    C: Component,
+    W: Component,
+{
+    (
+        OffscreenCamera::<C, W>::default(),
+        RenderLayers::layer(layer),
+        Camera {
+            target: RenderTarget::Image(ImageRenderTarget::from(image_handle)),
+            clear_color: ClearColorConfig::Custom(Color::NONE),
+            ..default()
+        },
+    )
 }
