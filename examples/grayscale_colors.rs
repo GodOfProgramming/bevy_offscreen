@@ -2,7 +2,7 @@ use bevy::{
     camera::visibility::{Layer, RenderLayers},
     prelude::*,
     render::render_resource::AsBindGroup,
-    sprite_render::{AlphaMode2d, Material2d},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
     window::PrimaryWindow,
 };
 use bevy_offscreen::{
@@ -21,9 +21,9 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             OffscreenRenderingPlugin::<MainCamera>::new(GRAYSCALE_LAYER),
+            Material2dPlugin::<FinalMaterial>::default(),
+            Material2dPlugin::<ColorIdMaterial>::default(),
         ))
-        .init_asset::<FinalMaterial>()
-        .init_asset::<ColorIdMaterial>()
         .add_observer(handle_resizes)
         .add_systems(Startup, startup)
         .run();
@@ -75,7 +75,6 @@ fn startup(
     let left_rect = commands
         .spawn(OffscreenCameraRect {
             render_layers: RenderLayers::layer(GRAYSCALE_LAYER),
-            // render_layers: RenderLayers::layer(0),
             mesh: Mesh2d(rect_mesh.clone()),
             material: MeshMaterial2d(grayscale_rect_mat.clone()),
             transform: Transform::from_translation(Vec3::new(-RECTANGLE_SIZE * 2.0, 0.0, 0.0)),
@@ -85,7 +84,6 @@ fn startup(
     let right_rect = commands
         .spawn(OffscreenCameraRect {
             render_layers: RenderLayers::layer(GRAYSCALE_LAYER),
-            // render_layers: RenderLayers::layer(0),
             mesh: Mesh2d(rect_mesh.clone()),
             material: MeshMaterial2d(grayscale_rect_mat.clone()),
             transform: Transform::from_translation(Vec3::new(RECTANGLE_SIZE * 2.0, 0.0, 0.0)),
@@ -96,20 +94,18 @@ fn startup(
         (
             ChildOf(left_rect),
             OffscreenCameraRect {
-                // render_layers: RenderLayers::layer(COLOR_ID_LAYER),
-                render_layers: RenderLayers::layer(0),
+                render_layers: RenderLayers::layer(COLOR_ID_LAYER),
                 mesh: Mesh2d(rect_mesh.clone()),
-                material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 0 })),
+                material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 0.0 })),
                 transform: Transform::default(),
             },
         ),
         (
             ChildOf(right_rect),
             OffscreenCameraRect {
-                // render_layers: RenderLayers::layer(COLOR_ID_LAYER),
-                render_layers: RenderLayers::layer(0),
+                render_layers: RenderLayers::layer(COLOR_ID_LAYER),
                 mesh: Mesh2d(rect_mesh.clone()),
-                material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 1 })),
+                material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 1.0 })),
                 transform: Transform::default(),
             },
         ),
@@ -120,7 +116,7 @@ fn startup(
     commands.spawn((
         PostProcessRectMarker,
         Mesh2d(meshes.add(Rectangle::from_size(
-            get_viewport_size(None, &window).as_vec2(),
+            get_viewport_size(None, &window).as_vec2() / 2.0,
         ))),
         MeshMaterial2d(final_materials.add(FinalMaterial {
             grayscale: grayscale_image,
@@ -151,7 +147,7 @@ struct OffscreenCameraRect<M: Material2d> {
 #[derive(Asset, AsBindGroup, Reflect, Clone)]
 pub struct ColorIdMaterial {
     #[uniform(0)]
-    color_id: u32,
+    color_id: f32,
 }
 
 impl Material2d for ColorIdMaterial {

@@ -11,7 +11,7 @@
 @fragment
 fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
   let grayscale_color = textureSample(grayscale_tex, grayscale_sampler, input.uv);
-  let color_id = textureSample(color_id_tex, color_id_sampler, input.uv);
-  let color = palette[color_id];
-  return vec4<f32>(mix(grayscale_color, color, 0.5), grayscale_color.a);
+  let color_id = textureSample(color_id_tex, color_id_sampler, input.uv).r;
+  let color = palette[u32(color_id)];
+  return vec4<f32>(mix(grayscale_color.rgb, color, 0.5), grayscale_color.a);
 }
