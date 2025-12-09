@@ -1,13 +1,15 @@
 use bevy::{
-    camera::visibility::{Layer, RenderLayers},
+    camera::{
+        ImageRenderTarget, RenderTarget,
+        visibility::{Layer, RenderLayers},
+    },
     prelude::*,
     render::render_resource::AsBindGroup,
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
     window::PrimaryWindow,
 };
 use bevy_offscreen::{
-    CameraType, OffscreenRenderingPlugin, OffscreenResizeEvent, get_viewport_size,
-    new_offscreen_camera,
+    OffscreenCamera, OffscreenResizeEvent, get_viewport_size, sync::OffscreenCameraSyncPlugin,
 };
 use wgpu_types::TextureFormat;
 
@@ -20,7 +22,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            OffscreenRenderingPlugin::<MainCamera>::new(GRAYSCALE_LAYER),
+            // OffscreenCameraSyncPlugin::<MainCamera>::new(),
             Material2dPlugin::<FinalMaterial>::default(),
             Material2dPlugin::<ColorIdMaterial>::default(),
         ))
@@ -29,42 +31,23 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
-#[require(Camera2d)]
-struct MainCamera;
-
 fn startup(
     mut commands: Commands,
+    window: Single<&Window, With<PrimaryWindow>>,
+    mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut color_materials: ResMut<Assets<ColorMaterial>>,
     mut color_id_materials: ResMut<Assets<ColorIdMaterial>>,
     mut final_materials: ResMut<Assets<FinalMaterial>>,
-    window: Single<&Window, With<PrimaryWindow>>,
-    mut images: ResMut<Assets<Image>>,
 ) {
-    let main_camera_entity = commands.spawn(MainCamera).id();
+    let image_size = window.physical_size();
+    let grayscale_image =
+        Image::new_target_texture(image_size.x, image_size.y, TextureFormat::Rgba8UnormSrgb);
+    let grayscale_image_handle = images.add(grayscale_image);
 
-    let (_, grayscale_image) = new_offscreen_camera::<MainCamera, PrimaryWindow>(
-        &mut commands,
-        &mut images,
-        main_camera_entity,
-        None,
-        &window,
-        GRAYSCALE_LAYER,
-        CameraType::Camera2d(Camera2d),
-        TextureFormat::Rgba8UnormSrgb,
-    );
-
-    let (_, color_id_image) = new_offscreen_camera::<MainCamera, PrimaryWindow>(
-        &mut commands,
-        &mut images,
-        main_camera_entity,
-        None,
-        &window,
-        COLOR_ID_LAYER,
-        CameraType::Camera2d(Camera2d),
-        TextureFormat::Rgba8UnormSrgb,
-    );
+    let color_id_image =
+        Image::new_target_texture(image_size.x, image_size.y, TextureFormat::Rgba8UnormSrgb);
+    let color_id_image_handle = images.add(color_id_image);
 
     let rect_mesh = meshes.add(Rectangle::from_size(Vec2::splat(RECTANGLE_SIZE)));
 
@@ -72,66 +55,83 @@ fn startup(
         0.50, 0.50, 0.50,
     )));
 
-    let left_rect = commands
-        .spawn(OffscreenCameraRect {
+    commands.spawn((
+        OffscreenCameraRect {
             render_layers: RenderLayers::layer(GRAYSCALE_LAYER),
             mesh: Mesh2d(rect_mesh.clone()),
             material: MeshMaterial2d(grayscale_rect_mat.clone()),
             transform: Transform::from_translation(Vec3::new(-RECTANGLE_SIZE * 2.0, 0.0, 0.0)),
-        })
-        .id();
+        },
+        Children::spawn(Spawn(OffscreenCameraRect {
+            render_layers: RenderLayers::layer(COLOR_ID_LAYER),
+            mesh: Mesh2d(rect_mesh.clone()),
+            material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 0.0 })),
+            transform: Transform::default(),
+        })),
+    ));
 
-    let right_rect = commands
-        .spawn(OffscreenCameraRect {
+    commands.spawn((
+        OffscreenCameraRect {
             render_layers: RenderLayers::layer(GRAYSCALE_LAYER),
             mesh: Mesh2d(rect_mesh.clone()),
             material: MeshMaterial2d(grayscale_rect_mat.clone()),
             transform: Transform::from_translation(Vec3::new(RECTANGLE_SIZE * 2.0, 0.0, 0.0)),
-        })
-        .id();
-
-    commands.spawn_batch([
-        (
-            ChildOf(left_rect),
-            OffscreenCameraRect {
-                render_layers: RenderLayers::layer(COLOR_ID_LAYER),
-                mesh: Mesh2d(rect_mesh.clone()),
-                material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 0.0 })),
-                transform: Transform::default(),
-            },
-        ),
-        (
-            ChildOf(right_rect),
-            OffscreenCameraRect {
-                render_layers: RenderLayers::layer(COLOR_ID_LAYER),
-                mesh: Mesh2d(rect_mesh.clone()),
-                material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 1.0 })),
-                transform: Transform::default(),
-            },
-        ),
-    ]);
-
-    // final post process
-
-    commands.spawn((
-        PostProcessRectMarker,
-        Mesh2d(meshes.add(Rectangle::from_size(
-            get_viewport_size(None, &window).as_vec2() / 2.0,
-        ))),
-        MeshMaterial2d(final_materials.add(FinalMaterial {
-            grayscale: grayscale_image,
-            color_id: color_id_image,
-            palette: [
-                Color::linear_rgb(0.25, 0.5, 0.75).to_linear().to_vec3(),
-                Color::linear_rgb(0.5, 0.75, 0.25).to_linear().to_vec3(),
-            ],
+        },
+        Children::spawn(Spawn(OffscreenCameraRect {
+            render_layers: RenderLayers::layer(COLOR_ID_LAYER),
+            mesh: Mesh2d(rect_mesh.clone()),
+            material: MeshMaterial2d(color_id_materials.add(ColorIdMaterial { color_id: 1.0 })),
+            transform: Transform::default(),
         })),
-        ChildOf(main_camera_entity),
     ));
 
-    // middle
-    commands.spawn((Mesh2d(rect_mesh), MeshMaterial2d(grayscale_rect_mat)));
+    commands.spawn((
+        MainCamera,
+        Children::spawn((
+            Spawn((
+                OffscreenCamera::<MainCamera>::default(),
+                RenderLayers::layer(GRAYSCALE_LAYER),
+                Camera2d,
+                Camera {
+                    target: RenderTarget::Image(ImageRenderTarget::from(
+                        grayscale_image_handle.clone(),
+                    )),
+                    clear_color: ClearColorConfig::Custom(Color::NONE),
+                    ..default()
+                },
+            )),
+            Spawn((
+                OffscreenCamera::<MainCamera>::default(),
+                RenderLayers::layer(COLOR_ID_LAYER),
+                Camera2d,
+                Camera {
+                    target: RenderTarget::Image(ImageRenderTarget::from(
+                        color_id_image_handle.clone(),
+                    )),
+                    clear_color: ClearColorConfig::Custom(Color::NONE),
+                    ..default()
+                },
+            )),
+            Spawn((
+                Mesh2d(meshes.add(Rectangle::from_size(
+                    get_viewport_size(None, &window).as_vec2(),
+                ))),
+                MeshMaterial2d(final_materials.add(FinalMaterial {
+                    grayscale: grayscale_image_handle,
+                    color_id: color_id_image_handle,
+                    palette: [
+                        Color::linear_rgb(0.25, 0.5, 0.75).to_linear().to_vec3(),
+                        Color::linear_rgb(0.5, 0.75, 0.25).to_linear().to_vec3(),
+                    ],
+                })),
+            )),
+        )),
+    ));
 }
+
+#[derive(Component)]
+#[require(Camera2d)]
+struct MainCamera;
 
 #[derive(Component)]
 struct PostProcessRectMarker;
