@@ -49,8 +49,11 @@ where
 
         for mut offscreen in &mut q_offscreen {
             if let RenderTarget::Image(image_target) = &mut offscreen.target
-                && let Some(image) = images.get_mut(image_target.handle.id())
+                // need to check immutable first, mutable causes the
+                // image to not render this frame and thus would never render
+                && let Some(image) = images.get(image_target.handle.id())
                 && image.size() != render_size
+                && let Some(image) = images.get_mut(image_target.handle.id())
             {
                 was_resized = true;
                 image.resize(Extent3d {
@@ -73,6 +76,6 @@ where
     W: Component,
 {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, Self::sync_offscreen_cameras);
+        app.add_systems(First, Self::sync_offscreen_cameras);
     }
 }

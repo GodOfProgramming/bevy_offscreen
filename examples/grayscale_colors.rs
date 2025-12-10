@@ -22,7 +22,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            // OffscreenCameraSyncPlugin::<MainCamera>::new(),
+            OffscreenCameraSyncPlugin::<MainCamera>::new(),
             Material2dPlugin::<FinalMaterial>::default(),
             Material2dPlugin::<ColorIdMaterial>::default(),
         ))
