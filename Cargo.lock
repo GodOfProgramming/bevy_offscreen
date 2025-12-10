@@ -968,6 +968,13 @@ name = "bevy_offscreen"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_app",
+ "bevy_asset",
+ "bevy_camera",
+ "bevy_ecs",
+ "bevy_image",
+ "bevy_math",
+ "bevy_window",
  "wgpu-types",
 ]
 

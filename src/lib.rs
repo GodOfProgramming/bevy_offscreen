@@ -3,7 +3,10 @@
 
 pub mod sync;
 
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy_camera::Camera;
+use bevy_ecs::{component::Component, event::Event};
+use bevy_math::UVec2;
+use bevy_window::{PrimaryWindow, Window};
 use std::marker::PhantomData;
 pub use wgpu_types;
 

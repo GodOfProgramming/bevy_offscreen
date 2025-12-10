@@ -1,4 +1,13 @@
-use bevy::{camera::RenderTarget, prelude::*, window::PrimaryWindow};
+use bevy_app::{App, Plugin, PreUpdate};
+use bevy_asset::Assets;
+use bevy_camera::{Camera, RenderTarget};
+use bevy_ecs::{
+    component::Component,
+    query::{With, Without},
+    system::{Commands, Query, ResMut, Single},
+};
+use bevy_image::Image;
+use bevy_window::{PrimaryWindow, Window};
 use std::marker::PhantomData;
 use wgpu_types::Extent3d;
 
