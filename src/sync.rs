@@ -76,6 +76,6 @@ where
     W: Component,
 {
     fn build(&self, app: &mut App) {
-        app.add_systems(First, Self::sync_offscreen_cameras);
+        app.add_systems(PreUpdate, Self::sync_offscreen_cameras);
     }
 }
